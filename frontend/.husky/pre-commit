@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔎 Backend: pre-commit (Python)"
+# Intenta ejecutar pre-commit del backend (si falla, aborta)
+pre-commit run --hook-stage pre-commit || exit 1
+
+echo "🧹 Frontend: lint-staged"
+# Ejecuta lint-staged usando el package.json del frontend
+npx --prefix frontend lint-staged || exit 1
+
+echo "✅ Hooks OK"
