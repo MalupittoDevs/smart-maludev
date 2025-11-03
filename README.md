@@ -147,7 +147,3 @@ Elías Yévenes (Malupitto) – Ingeniería en Informática, DuocUC
 
 📜 Licencia
 MIT – uso y modificación permitidos con atribución al autor.
-
-yaml
-Copy code
-
