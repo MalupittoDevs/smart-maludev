@@ -17,3 +17,12 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode><RouterProvider router={router} /></React.StrictMode>
 );
+import { ToastProvider } from "./components/Toast";
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <ToastProvider>
+      <RouterProvider router={router} />
+    </ToastProvider>
+  </React.StrictMode>,
+);
