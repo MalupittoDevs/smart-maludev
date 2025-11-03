@@ -151,14 +151,3 @@ MIT – uso y modificación permitidos con atribución al autor.
 yaml
 Copy code
 
----
-
-## ⬆️ Cómo subir el cambio
-
-```bash
-# desde la raíz del repo (rama dev)
-git add README.md
-git commit -m "docs: README con badges, arquitectura, endpoints y roadmap"
-git push
-# (opcional) promover
-git checkout main && git merge dev && git push
