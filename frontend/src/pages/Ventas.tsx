@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../lib/api";
-import type { Product } from "../lib/api";
+import { InventoryApi, type Product } from "../lib/api";
 import { useToast } from "../components/Toast";
 
-/** Ajusta el IVA si lo necesitas (19% en CL) */
+/** IVA CL (19%) */
 const IVA_RATE = 0.19;
 
 type CartLine = { product: Product; qty: number };
@@ -27,7 +26,7 @@ export default function Ventas() {
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const r = await api.get<Product[]>("/products/");
+      const r = await InventoryApi.list();
       setProducts(r.data);
     } catch {
       push({ type: "error", msg: "No se pudo cargar el catálogo" });
@@ -45,12 +44,15 @@ export default function Ventas() {
     products.find((p) => p.sku.toLowerCase() === sku.trim().toLowerCase());
 
   const formatCLP = (n: number) =>
-    new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
+      maximumFractionDigits: 0,
+    }).format(n);
 
-  // Totales (simples: asumimos "precio" ~ qty como demo hasta que tengas precio en modelo)
-  // Si luego agregas `price` en Product, cambia estas funciones a qty * price.
+  // Totales (con price real)
   const subTotal = useMemo(
-    () => cart.reduce((acc, line) => acc + line.qty, 0), // <-- DEMO: usa price aquí cuando exista
+    () => cart.reduce((acc, line) => acc + line.qty * line.product.price, 0),
     [cart]
   );
   const iva = useMemo(() => Math.round(subTotal * IVA_RATE), [subTotal]);
@@ -59,13 +61,15 @@ export default function Ventas() {
   // ------- acciones -------
   const addToCart = () => {
     if (!skuQuery.trim()) return push({ type: "error", msg: "Ingresa un SKU" });
-    if (!Number.isFinite(qtyToAdd) || qtyToAdd <= 0) return push({ type: "error", msg: "Cantidad inválida" });
+    if (!Number.isFinite(qtyToAdd) || qtyToAdd <= 0)
+      return push({ type: "error", msg: "Cantidad inválida" });
 
     const prod = findBySku(skuQuery);
     if (!prod) return push({ type: "error", msg: `SKU "${skuQuery}" no encontrado` });
 
     // validar stock disponible
-    if (qtyToAdd > prod.qty) return push({ type: "error", msg: `Stock insuficiente. Disponible: ${prod.qty}` });
+    if (qtyToAdd > prod.qty)
+      return push({ type: "error", msg: `Stock insuficiente. Disponible: ${prod.qty}` });
 
     setCart((prev) => {
       const i = prev.findIndex((l) => l.product.id === prod.id);
@@ -111,22 +115,24 @@ export default function Ventas() {
     try {
       setConfirming(true);
 
-      // Ejecutar compras en serie (o en Promise.all si lo prefieres)
+      // Ejecutar compras (serie para mensajes claros; podrías usar Promise.all)
       for (const line of cart) {
-        await api.post<Product>(`/products/${line.product.id}/buy/`, { qty: line.qty });
+        await InventoryApi.buy(line.product.id, line.qty);
       }
 
-      push({ type: "success", msg: "Compra realizada" });
+      push({ type: "success", msg: "Compra realizada ✅" });
       clearCart();
-      await loadProducts(); // refresca stocks
+      await loadProducts(); // refresca stocks y estados
     } catch (err: any) {
+      console.error(err);
       const msg =
+        err?.response?.data?.error ||
         err?.response?.data?.detail ||
         Object.entries(err?.response?.data ?? {})
           .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
           .join(" · ") ||
         "No se pudo completar la compra";
-      push({ type: "error", msg });
+      push({ type: "error", msg: `❌ ${msg}` });
     } finally {
       setConfirming(false);
     }
@@ -217,8 +223,7 @@ export default function Ventas() {
                     </td>
                     <td style={{ ...td, textAlign: "center" }}>{l.product.qty}</td>
                     <td style={{ ...td, textAlign: "right" }}>
-                      {/* DEMO: sin price, mostramos la qty como "total" */}
-                      {formatCLP(l.qty)}
+                      {formatCLP(l.qty * l.product.price)}
                     </td>
                     <td style={{ ...td, textAlign: "center" }}>
                       <button onClick={() => removeLine(l.product.id)} style={btnDanger}>
@@ -278,7 +283,6 @@ export default function Ventas() {
           Limpiar carrito
         </button>
 
-        {/* Espacio lateral para “insights/Prophet” a futuro */}
         <div
           style={{
             marginTop: 8,
