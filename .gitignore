@@ -18,3 +18,11 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+backend/.venv/
+backend/db.sqlite3
+backend/**/__pycache__/
+frontend/node_modules/
+*.log
+.env
+.DS_Store
