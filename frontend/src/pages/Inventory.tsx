@@ -27,14 +27,17 @@ export default function Inventory() {
   /* --- ajuste de stock --- */
   const [adjusting, setAdjusting] = useState<Product | null>(null);
   const [delta, setDelta] = useState<number>(0);
-  const [reason, setReason] = useState<"ADJUSTMENT" | "DAMAGE" | "RETURN" | "COUNT">("ADJUSTMENT");
+  const [reason, setReason] =
+    useState<"ADJUSTMENT" | "DAMAGE" | "RETURN" | "COUNT">("ADJUSTMENT");
   const [note, setNote] = useState("");
 
   /* --- filtros / orden --- */
   const [qSku, setQSku] = useState("");
   const [qName, setQName] = useState("");
-  const [qStatus, setQStatus] = useState<"" | "AVAILABLE" | "PENDING" | "OUT">("");
-  const [sortKey, setSortKey] = useState<"sku" | "name" | "qty" | "status" | "price">("sku");
+  const [qStatus, setQStatus] =
+    useState<"" | "AVAILABLE" | "PENDING" | "OUT">("");
+  const [sortKey, setSortKey] =
+    useState<"sku" | "name" | "qty" | "status" | "price">("sku");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const load = useCallback(async () => {
@@ -102,8 +105,10 @@ export default function Inventory() {
   const onSaveEdit = async () => {
     if (!editing) return;
     try {
-      if (!formSku.trim()) return push({ type: "error", msg: "SKU no puede estar vacío" });
-      if (!formName.trim()) return push({ type: "error", msg: "Nombre no puede estar vacío" });
+      if (!formSku.trim())
+        return push({ type: "error", msg: "SKU no puede estar vacío" });
+      if (!formName.trim())
+        return push({ type: "error", msg: "Nombre no puede estar vacío" });
       if (!Number.isFinite(formPrice) || formPrice < 0)
         return push({ type: "error", msg: "Precio inválido" });
 
@@ -154,6 +159,31 @@ export default function Inventory() {
     }
   };
 
+  /* --- eliminar producto --- */
+  const handleDeleteProduct = async (product: Product) => {
+    const ok = window.confirm(
+      `¿Eliminar el producto ${product.sku} — ${product.name}? Esta acción no se puede deshacer.`
+    );
+    if (!ok) return;
+
+    try {
+      await InventoryApi.remove(product.id);
+
+      setItems((prev) => prev.filter((p) => p.id !== product.id));
+
+      push({
+        type: "success",
+        msg: `Producto ${product.sku} eliminado correctamente`,
+      });
+    } catch (err) {
+      console.error(err);
+      push({
+        type: "error",
+        msg: "No se pudo eliminar el producto. Intenta nuevamente.",
+      });
+    }
+  };
+
   /* --- UI --- */
   return (
     <div>
@@ -197,13 +227,25 @@ export default function Inventory() {
         <table style={table}>
           <thead style={{ background: "#0f1622" }}>
             <tr>
-              <th style={th} onClick={() => toggleSort("sku")}>SKU</th>
-              <th style={th} onClick={() => toggleSort("name")}>Nombre</th>
-              <th style={{ ...th, textAlign: "right" }} onClick={() => toggleSort("qty")}>
+              <th style={th} onClick={() => toggleSort("sku")}>
+                SKU
+              </th>
+              <th style={th} onClick={() => toggleSort("name")}>
+                Nombre
+              </th>
+              <th
+                style={{ ...th, textAlign: "right" }}
+                onClick={() => toggleSort("qty")}
+              >
                 Cant.
               </th>
-              <th style={th} onClick={() => toggleSort("status")}>Estado</th>
-              <th style={{ ...th, textAlign: "right" }} onClick={() => toggleSort("price")}>
+              <th style={th} onClick={() => toggleSort("status")}>
+                Estado
+              </th>
+              <th
+                style={{ ...th, textAlign: "right" }}
+                onClick={() => toggleSort("price")}
+              >
                 Precio
               </th>
               <th style={{ ...th, textAlign: "center" }}>Acciones</th>
@@ -217,15 +259,36 @@ export default function Inventory() {
                 <td style={{ ...td, textAlign: "right" }}>{p.qty}</td>
                 <td style={td}>{p.status}</td>
                 <td style={{ ...td, textAlign: "right" }}>{formatCLP(p.price ?? 0)}</td>
-                <td style={{ ...td, textAlign: "center", display: "flex", gap: 8, justifyContent: "center" }}>
-                  <button onClick={() => onOpenEdit(p)} style={btnPrimary}>✏️ Editar</button>
-                  <button onClick={() => openAdjust(p)} style={btnGhost}>🧮 Ajustar</button>
+                <td
+                  style={{
+                    ...td,
+                    textAlign: "center",
+                    display: "flex",
+                    gap: 8,
+                    justifyContent: "center",
+                  }}
+                >
+                  <button onClick={() => onOpenEdit(p)} style={btnPrimary}>
+                    ✏️ Editar
+                  </button>
+                  <button onClick={() => openAdjust(p)} style={btnGhost}>
+                    🧮 Ajustar
+                  </button>
+                  <button
+                    onClick={() => void handleDeleteProduct(p)}
+                    style={btnGhost}
+                  >
+                    🗑️ Eliminar
+                  </button>
                 </td>
               </tr>
             ))}
             {filteredSorted.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ padding: 16, opacity: 0.7, textAlign: "center" }}>
+                <td
+                  colSpan={6}
+                  style={{ padding: 16, opacity: 0.7, textAlign: "center" }}
+                >
                   Sin productos
                 </td>
               </tr>
@@ -241,10 +304,18 @@ export default function Inventory() {
             <h3 style={{ marginTop: 0 }}>Editar producto</h3>
 
             <label style={label}>SKU</label>
-            <input style={input} value={formSku} onChange={(e) => setFormSku(e.target.value)} />
+            <input
+              style={input}
+              value={formSku}
+              onChange={(e) => setFormSku(e.target.value)}
+            />
 
             <label style={label}>Nombre</label>
-            <input style={input} value={formName} onChange={(e) => setFormName(e.target.value)} />
+            <input
+              style={input}
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+            />
 
             <label style={label}>Precio</label>
             <input
@@ -254,9 +325,20 @@ export default function Inventory() {
               onChange={(e) => setFormPrice(parseCLP(e.target.value))}
             />
 
-            <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
-              <button onClick={onCloseEdit} style={btnGhost}>Cancelar</button>
-              <button onClick={onSaveEdit} style={btnPrimary}>💾 Guardar</button>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 12,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button onClick={onCloseEdit} style={btnGhost}>
+                Cancelar
+              </button>
+              <button onClick={onSaveEdit} style={btnPrimary}>
+                💾 Guardar
+              </button>
             </div>
           </div>
         </div>
@@ -291,11 +373,26 @@ export default function Inventory() {
             </select>
 
             <label style={label}>Nota (opcional)</label>
-            <input style={input} value={note} onChange={(e) => setNote(e.target.value)} />
+            <input
+              style={input}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
 
-            <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
-              <button onClick={closeAdjust} style={btnGhost}>Cancelar</button>
-              <button onClick={saveAdjust} style={btnPrimary}>💾 Aplicar</button>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 12,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button onClick={closeAdjust} style={btnGhost}>
+                Cancelar
+              </button>
+              <button onClick={saveAdjust} style={btnPrimary}>
+                💾 Aplicar
+              </button>
             </div>
           </div>
         </div>
@@ -312,7 +409,12 @@ const table: React.CSSProperties = {
   borderRadius: 10,
   borderCollapse: "collapse",
 };
-const th: React.CSSProperties = { textAlign: "left", padding: 12, color: "#9fb3c8", cursor: "pointer" };
+const th: React.CSSProperties = {
+  textAlign: "left",
+  padding: 12,
+  color: "#9fb3c8",
+  cursor: "pointer",
+};
 const td: React.CSSProperties = { padding: 12 };
 const btnPrimary: React.CSSProperties = {
   padding: "6px 10px",
@@ -338,7 +440,12 @@ const input: React.CSSProperties = {
   color: "#e6edf3",
   outline: "none",
 };
-const label: React.CSSProperties = { fontSize: 12, opacity: 0.8, marginTop: 8, marginBottom: 4 };
+const label: React.CSSProperties = {
+  fontSize: 12,
+  opacity: 0.8,
+  marginTop: 8,
+  marginBottom: 4,
+};
 const modalBackdrop: React.CSSProperties = {
   position: "fixed",
   inset: 0,

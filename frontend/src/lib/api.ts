@@ -91,17 +91,24 @@ export const InventoryApi = {
   list: () => api.get<Product[]>("/products/"),
   create: (p: Omit<Product, "id" | "updated_at">) =>
     api.post<Product>("/products/", p),
+
+  
+
+  // ESTE es el método para eliminar productos
   remove: (id: number) => api.delete(`/products/${id}/`),
+
   buy: (id: number, qty: number) =>
     api.post<BuyResponse>(`/products/${id}/buy/`, { qty }),
+
   update: (id: number, data: ProductUpdate) =>
     api.patch<Product>(`/products/${id}/`, data),
+
   adjust: (id: number, body: StockAdjustPayload) =>
     api.post<StockAdjustResponse>(`/products/${id}/adjust_stock/`, body),
-    dashboard: () => api.get<DashboardSummary>("/dashboard/"),
 
+  dashboard: () => api.get<DashboardSummary>("/dashboard/"),
 
-  // 🔹 NUEVO: listar movimientos
+  // 🔹 listar movimientos
   listMovements: (limit = 50) =>
     api.get<StockMovement[]>("/movements/", {
       params: { limit },
