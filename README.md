@@ -1,14 +1,57 @@
 # 🧠 Smart MaluDev – Sistema de Inventario Inteligente
 
-[![Status](https://img.shields.io/badge/Estado-En%20Desarrollo-yellow)](#)
+[![Status](https://img.shields.io/badge/Estado-Estable%20v1.0.0--apt-brightgreen)](#)
 [![Backend](https://img.shields.io/badge/Backend-Django%205.2-blue)](https://www.djangoproject.com/)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Database](https://img.shields.io/badge/Base%20de%20Datos-SQLite-lightgrey)](https://www.sqlite.org/)
 [![License](https://img.shields.io/badge/Licencia-MIT-green)](#licencia)
 
-**Inventario Smart** es un sistema web para la **gestión inteligente de productos y stock** en PYMEs.  
-Permite **visualizar, agregar, comprar y eliminar** productos. Backend **Django + DRF** y Frontend **React + TS (Vite)**.  
-Proyecto de titulación – Ingeniería en Informática (DuocUC).
+**Smart MaluDev** es un sistema web para la **gestión inteligente de inventario y movimientos de stock** en PYMEs.  
+Incluye **dashboard con métricas**, **módulo de inventario con CRUD y filtros**, y un **Punto de Venta (POS)** para ventas y ajustes con historial real de stock.  
+
+Proyecto de Titulación – Ingeniería en Informática – **DUOC UC**.
+
+---
+
+## ✨ Funcionalidades principales
+
+### 📊 Dashboard General
+- Total de productos registrados
+- Stock total disponible
+- Valor estimado del inventario (precio × cantidad)
+- Movimientos registrados en los últimos días
+- **Productos con stock crítico**
+- **Proyección básica de agotamiento (versión beta)**
+
+### 📦 Gestión de Inventario
+- CRUD de productos (crear, editar, eliminar)
+- Filtros: SKU, nombre, estado (`AVAILABLE`, `PENDING`, `OUT`)
+- Ajustes de stock con motivo y nota
+- **Valor total del inventario**
+
+### 🛒 Punto de Venta (POS)
+- Agregar productos por SKU
+- Control de cantidades
+- Cálculo automático de **Subtotal + IVA (19%) + Total final**
+- Confirmación de compra con descargo real en stock
+- Historial reciente integrado
+
+### 📜 Movimientos
+- Fecha y hora
+- SKU y producto
+- Delta en stock (+ / -)
+- Motivo y notas
+
+---
+
+## 🖼️ Capturas de pantalla
+*(Pendiente agregar rutas reales a `docs/screenshots/`)*
+
+| Vista | Screenshot |
+|-------|-----------|
+| Dashboard | ![Dashboard](docs/screenshots/dashboard.png) |
+| Inventario | ![Inventario](docs/screenshots/inventory.png) |
+| Punto de Venta | ![POS](docs/screenshots/pos.png) |
 
 ---
 
@@ -17,7 +60,6 @@ Proyecto de titulación – Ingeniería en Informática (DuocUC).
 ```plaintext
                  ┌───────────────────────────┐
                  │        Frontend (Vite)     │
-                 │───────────────────────────│
                  │ React + TypeScript         │
                  │ Axios (API REST)           │
                  │ Tema oscuro / Sidebar      │
@@ -25,125 +67,117 @@ Proyecto de titulación – Ingeniería en Informática (DuocUC).
                                 │ HTTP (JSON)
                  ┌──────────────▼────────────┐
                  │      Backend (Django)     │
-                 │───────────────────────────│
                  │ Django REST Framework      │
-                 │ CRUD /products/            │
-                 │ Acción POST /products/{id}/buy/
+                 │ /api/products/             │
+                 │ /api/products/{id}/buy/    │
+                 │ /api/movements/            │
+                 │ /api/dashboard/            │
                  └──────────────┬────────────┘
                                 │ ORM
                  ┌──────────────▼────────────┐
                  │        SQLite (dev)       │
-                 │  Product(id, sku, name,   │
-                 │  qty, status, updated_at) │
                  └───────────────────────────┘
-🚀 Ramas (Git Flow)
-Rama	Descripción	Uso principal
-main	Producción estable	Código listo para deploy
-dev	Desarrollo activo	Implementación de features
-test	Pruebas / QA	Validación e integración
-backup	Respaldo manual	Copias antes de cambios grandes
+🧠 Stack Tecnológico
+Backend
+Django 5.2 + Django REST Framework
 
-Rutina diaria (dev):
+django-cors-headers
 
-bash
-Copy code
-git checkout dev
-git add .
-git commit -m "feat: X"
-git push
-Promocionar a producción:
+python-dotenv
 
-bash
-Copy code
-git checkout test && git merge dev && git push
-git checkout main && git merge test && git push
-🧩 Stack
-Backend: Django 5.2 + Django REST Framework, django-cors-headers, python-dotenv
+Frontend
+React 18
 
-Frontend: React 18 + TypeScript + Vite, Axios, React Router, Lucide Icons
+TypeScript
 
-DB (dev): SQLite
+Vite
 
-Entornos: venv (Python) / Node LTS (20/22)
+Axios
 
-🧰 Cómo correr el proyecto
+React Router
+
+Base de Datos
+SQLite (desarrollo)
+
+Preparado para PostgreSQL en producción
+
+🚀 Instalación y ejecución
 Backend
 bash
 Copy code
 cd backend
-# activar venv (Windows)
-.venv\Scripts\activate
-# migrar y levantar
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver 8000
-# API: http://localhost:8000/api/products/
+python manage.py runserver
+# API: http://localhost:8000/api/
 Frontend
 bash
 Copy code
 cd frontend
 npm install
 npm run dev
-# UI:  http://localhost:5173
-Variables de entorno:
+# UI: http://localhost:5173/
+Variables de entorno
+makefile
+Copy code
+backend/.env:
+SECRET_KEY=...
+DEBUG=1
 
-backend/.env → SECRET_KEY=... / DEBUG=1
+frontend/.env.local:
+VITE_API_URL=http://localhost:8000/api
+📡 Endpoints principales
+Método	Endpoint	Descripción
+GET	/api/products/	Lista productos
+POST	/api/products/	Crea producto
+PUT	/api/products/{id}/	Edita producto
+DELETE	/api/products/{id}/	Elimina producto
+POST	/api/products/{id}/buy/	Ajuste/venta de stock
 
-frontend/.env.local → VITE_API_URL=http://localhost:8000/api
-
-📡 Endpoints clave
-GET /api/products/ — Lista productos
-
-POST /api/products/ — Crea producto {sku, name, qty, status}
-
-DELETE /api/products/{id}/ — Elimina producto
-
-POST /api/products/{id}/buy/ { qty } — Compra (decrementa stock y ajusta status):
-
-qty <= 0 → 400
-
-qty > stock → 400
-
-qty == stock → status = OUT
-
-0 < stock <= 5 → status = PENDING
-
-stock > 5 → status = AVAILABLE
-
-📁 Estructura
+🔧 Estructura del proyecto
 plaintext
 Copy code
 smart-maludev/
 ├─ backend/
-│  ├─ core/            # settings/urls
-│  ├─ inventory/       # modelos, serializers, viewsets
+│  ├─ core/
+│  ├─ inventory/
 │  ├─ manage.py
-│  ├─ .env             # (no se sube)
+│  ├─ .env
 │  └─ requirements.txt
 ├─ frontend/
 │  ├─ src/
-│  │  ├─ components/   # formularios, modales
-│  │  ├─ lib/api.ts    # cliente Axios
-│  │  ├─ pages/        # General, Inventory, Ventas
-│  │  ├─ App.tsx, main.tsx, vite-env.d.ts
-│  ├─ .env.local       # (no se sube)
+│  ├─ .env.local
 │  └─ package.json
 ├─ .gitignore
 └─ README.md
-🧪 Roadmap corto
- Validaciones de formulario en front (SKU único, qty ≥ 0)
+🌱 Roadmap
+Integración Prophet para predicción real de demanda
 
- Paginación y búsqueda en /products/
+Autenticación y roles
 
- Estados visuales (toasts/spinners/errores)
+Reportes PDF / Excel
 
- Docker Compose para dev
+Docker Compose para entornos productivos
 
- Deploy (Railway/Render + Vercel/Netlify)
+Deploy: Render / Railway + Vercel / Netlify
 
+⚙️ Flujo de trabajo Git (Git Flow)
+Rama	Uso
+main	versión estable / demo
+dev	desarrollo activo
+test	pruebas / QA
+backup-safe-*	respaldo antes de cambios grandes
+
+bash
+Copy code
+git checkout dev
+git add .
+git commit -m "feat: módulo POS funcional"
+git push
 👤 Autor
-Elías Yévenes (Malupitto) – Ingeniería en Informática, DuocUC
+Elías Yévenes (Malupitto)
+Ingeniería en Informática – DUOC UC
 
 “Sanar sistemas, como sanar personas: mantener el equilibrio.” ⚕️
-
-📜 Licencia
-MIT – uso y modificación permitidos con atribución al autor.
