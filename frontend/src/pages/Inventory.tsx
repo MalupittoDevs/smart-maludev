@@ -18,6 +18,15 @@ export default function Inventory() {
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
 
+  /* --- creación --- */
+  const [creating, setCreating] = useState(false);
+  const [newSku, setNewSku] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newQty, setNewQty] = useState<number>(0);
+  const [newPrice, setNewPrice] = useState<number>(0);
+  const [newStatus, setNewStatus] =
+    useState<"AVAILABLE" | "PENDING" | "OUT">("AVAILABLE");
+
   /* --- edición --- */
   const [editing, setEditing] = useState<Product | null>(null);
   const [formSku, setFormSku] = useState("");
@@ -27,17 +36,20 @@ export default function Inventory() {
   /* --- ajuste de stock --- */
   const [adjusting, setAdjusting] = useState<Product | null>(null);
   const [delta, setDelta] = useState<number>(0);
-  const [reason, setReason] =
-    useState<"ADJUSTMENT" | "DAMAGE" | "RETURN" | "COUNT">("ADJUSTMENT");
+  const [reason, setReason] = useState<
+    "ADJUSTMENT" | "DAMAGE" | "RETURN" | "COUNT"
+  >("ADJUSTMENT");
   const [note, setNote] = useState("");
 
   /* --- filtros / orden --- */
   const [qSku, setQSku] = useState("");
   const [qName, setQName] = useState("");
-  const [qStatus, setQStatus] =
-    useState<"" | "AVAILABLE" | "PENDING" | "OUT">("");
-  const [sortKey, setSortKey] =
-    useState<"sku" | "name" | "qty" | "status" | "price">("sku");
+  const [qStatus, setQStatus] = useState<"" | "AVAILABLE" | "PENDING" | "OUT">(
+    ""
+  );
+  const [sortKey, setSortKey] = useState<"sku" | "name" | "qty" | "status" | "price">(
+    "sku"
+  );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const load = useCallback(async () => {
@@ -159,6 +171,53 @@ export default function Inventory() {
     }
   };
 
+  /* --- creación --- */
+  const openCreate = () => {
+    setCreating(true);
+    setNewSku("");
+    setNewName("");
+    setNewQty(0);
+    setNewPrice(0);
+    setNewStatus("AVAILABLE");
+  };
+
+  const closeCreate = () => {
+    setCreating(false);
+  };
+
+  const saveCreate = async () => {
+    try {
+      if (!newSku.trim())
+        return push({ type: "error", msg: "SKU no puede estar vacío" });
+      if (!newName.trim())
+        return push({ type: "error", msg: "Nombre no puede estar vacío" });
+      if (!Number.isFinite(newQty) || newQty < 0)
+        return push({ type: "error", msg: "Cantidad inválida" });
+      if (!Number.isFinite(newPrice) || newPrice < 0)
+        return push({ type: "error", msg: "Precio inválido" });
+
+      await InventoryApi.create({
+        sku: newSku.trim(),
+        name: newName.trim(),
+        qty: Math.trunc(newQty),
+        status: newStatus,
+        price: Math.round(newPrice),
+      });
+
+      push({ type: "success", msg: "Producto creado" });
+      setCreating(false);
+      await load();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.detail ||
+        Object.entries(err?.response?.data ?? {})
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+          .join(" · ") ||
+        "No se pudo crear el producto";
+      push({ type: "error", msg });
+    }
+  };
+
   /* --- eliminar producto --- */
   const handleDeleteProduct = async (product: Product) => {
     const ok = window.confirm(
@@ -187,12 +246,26 @@ export default function Inventory() {
   /* --- UI --- */
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
         <h1 style={{ margin: 0 }}>Inventario</h1>
         <span style={{ opacity: 0.8 }}>
           Valor total: <b>{formatCLP(totalValor)}</b>
         </span>
-        <button onClick={() => void load()} disabled={loading} style={btnPrimary}>
+        <button onClick={openCreate} style={btnPrimary}>
+          ➕ Agregar producto
+        </button>
+        <button
+          onClick={() => void load()}
+          disabled={loading}
+          style={btnGhost}
+        >
           🔄 Refrescar
         </button>
       </div>
@@ -258,7 +331,9 @@ export default function Inventory() {
                 <td style={td}>{p.name}</td>
                 <td style={{ ...td, textAlign: "right" }}>{p.qty}</td>
                 <td style={td}>{p.status}</td>
-                <td style={{ ...td, textAlign: "right" }}>{formatCLP(p.price ?? 0)}</td>
+                <td style={{ ...td, textAlign: "right" }}>
+                  {formatCLP(p.price ?? 0)}
+                </td>
                 <td
                   style={{
                     ...td,
@@ -287,7 +362,11 @@ export default function Inventory() {
               <tr>
                 <td
                   colSpan={6}
-                  style={{ padding: 16, opacity: 0.7, textAlign: "center" }}
+                  style={{
+                    padding: 16,
+                    opacity: 0.7,
+                    textAlign: "center",
+                  }}
                 >
                   Sin productos
                 </td>
@@ -296,6 +375,76 @@ export default function Inventory() {
           </tbody>
         </table>
       </div>
+
+      {/* --- Modal de creación --- */}
+      {creating && (
+        <div style={modalBackdrop} onClick={closeCreate}>
+          <div onClick={(e) => e.stopPropagation()} style={modal}>
+            <h3 style={{ marginTop: 0 }}>Agregar producto</h3>
+
+            <label style={label}>SKU</label>
+            <input
+              style={input}
+              value={newSku}
+              onChange={(e) => setNewSku(e.target.value)}
+            />
+
+            <label style={label}>Nombre</label>
+            <input
+              style={input}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+
+            <label style={label}>Cantidad inicial</label>
+            <input
+              type="number"
+              style={input}
+              value={newQty}
+              onChange={(e) => setNewQty(Number(e.target.value))}
+            />
+
+            <label style={label}>Precio</label>
+            <input
+              style={input}
+              inputMode="numeric"
+              value={formatCLP(newPrice)}
+              onChange={(e) => setNewPrice(parseCLP(e.target.value))}
+            />
+
+            <label style={label}>Estado</label>
+            <select
+              style={input as any}
+              value={newStatus}
+              onChange={(e) =>
+                setNewStatus(
+                  e.target.value as "AVAILABLE" | "PENDING" | "OUT"
+                )
+              }
+            >
+              <option value="AVAILABLE">AVAILABLE</option>
+              <option value="PENDING">PENDING</option>
+              <option value="OUT">OUT</option>
+            </select>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 12,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button onClick={closeCreate} style={btnGhost}>
+                Cancelar
+              </button>
+              <button onClick={saveCreate} style={btnPrimary}>
+                ➕ Crear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- Modal de edición --- */}
       {editing && (
@@ -349,7 +498,8 @@ export default function Inventory() {
         <div style={modalBackdrop} onClick={closeAdjust}>
           <div style={modal} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginTop: 0 }}>
-              Ajustar stock — <span style={{ opacity: 0.9 }}>{adjusting.name}</span>
+              Ajustar stock —{" "}
+              <span style={{ opacity: 0.9 }}>{adjusting.name}</span>
             </h3>
 
             <label style={label}>Delta (usa negativo para restar)</label>
