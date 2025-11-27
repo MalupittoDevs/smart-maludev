@@ -1,192 +1,336 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { api } from "../lib/api";
-import type { Product } from "../lib/api";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { InventoryApi, type Product } from "../lib/api";
 import { useToast } from "../components/Toast";
 
-type NewProduct = Omit<Product, "id">;
+/* --- helpers de dinero --- */
+const formatCLP = (n: number) =>
+  new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, Math.trunc(n || 0)));
 
-const emptyDraft: NewProduct = {
-  sku: "",
-  name: "",
-  qty: 0,
-  status: "AVAILABLE",
-};
+const parseCLP = (s: string) => Number(String(s).replace(/[^\d]/g, "")) || 0;
 
 export default function Inventory() {
   const { push } = useToast();
+
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
-  const [draft, setDraft] = useState<NewProduct>(emptyDraft);
 
-  // 1) load memorizado para satisfacer react-hooks/exhaustive-deps
+  /* --- edición --- */
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [formSku, setFormSku] = useState("");
+  const [formName, setFormName] = useState("");
+  const [formPrice, setFormPrice] = useState<number>(0);
+
+  /* --- ajuste de stock --- */
+  const [adjusting, setAdjusting] = useState<Product | null>(null);
+  const [delta, setDelta] = useState<number>(0);
+  const [reason, setReason] = useState<"ADJUSTMENT" | "DAMAGE" | "RETURN" | "COUNT">("ADJUSTMENT");
+  const [note, setNote] = useState("");
+
+  /* --- filtros / orden --- */
+  const [qSku, setQSku] = useState("");
+  const [qName, setQName] = useState("");
+  const [qStatus, setQStatus] = useState<"" | "AVAILABLE" | "PENDING" | "OUT">("");
+  const [sortKey, setSortKey] = useState<"sku" | "name" | "qty" | "status" | "price">("sku");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const r = await api.get<Product[]>("/products/");
+      const r = await InventoryApi.list();
       setItems(r.data);
     } catch {
-      push({ type: "error", msg: "Error al cargar inventario" });
+      push({ type: "error", msg: "No se pudo cargar Inventario" });
     } finally {
       setLoading(false);
     }
   }, [push]);
 
-  // 2) useEffect depende de load
   useEffect(() => {
     void load();
   }, [load]);
 
-  // 3) crear con manejo de errores más claro (ej: SKU duplicado)
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
+  /* --- derivados --- */
+  const totalValor = useMemo(
+    () => items.reduce((acc, p) => acc + p.qty * (p.price || 0), 0),
+    [items]
+  );
 
-    if (!draft.sku.trim() || !draft.name.trim()) {
-      push({ type: "error", msg: "Completa todos los campos" });
-      return;
-    }
-    if (!Number.isFinite(draft.qty) || draft.qty < 0) {
-      push({ type: "error", msg: "Cantidad inválida" });
-      return;
-    }
+  const filteredSorted = useMemo(() => {
+    const f = items.filter(
+      (p) =>
+        p.sku.toLowerCase().includes(qSku.toLowerCase()) &&
+        p.name.toLowerCase().includes(qName.toLowerCase()) &&
+        (qStatus ? p.status === qStatus : true)
+    );
+    const dir = sortDir === "asc" ? 1 : -1;
+    return f.sort((a, b) => {
+      const A: any = a[sortKey];
+      const B: any = b[sortKey];
+      if (A < B) return -1 * dir;
+      if (A > B) return 1 * dir;
+      return 0;
+    });
+  }, [items, qSku, qName, qStatus, sortKey, sortDir]);
 
+  const toggleSort = (k: typeof sortKey) => {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setSortDir("asc");
+    }
+  };
+
+  /* --- edición --- */
+  const onOpenEdit = (p: Product) => {
+    setEditing(p);
+    setFormSku(p.sku);
+    setFormName(p.name);
+    setFormPrice(p.price ?? 0);
+  };
+
+  const onCloseEdit = () => {
+    setEditing(null);
+    setFormSku("");
+    setFormName("");
+    setFormPrice(0);
+  };
+
+  const onSaveEdit = async () => {
+    if (!editing) return;
     try {
-      const r = await api.post<Product>("/products/", {
-        sku: draft.sku.trim(),
-        name: draft.name.trim(),
-        qty: Number(draft.qty),
-        status: draft.status,
+      if (!formSku.trim()) return push({ type: "error", msg: "SKU no puede estar vacío" });
+      if (!formName.trim()) return push({ type: "error", msg: "Nombre no puede estar vacío" });
+      if (!Number.isFinite(formPrice) || formPrice < 0)
+        return push({ type: "error", msg: "Precio inválido" });
+
+      await InventoryApi.update(editing.id, {
+        sku: formSku.trim(),
+        name: formName.trim(),
+        price: Math.round(formPrice),
       });
-      setItems((prev) => [...prev, r.data]);
-      setDraft(emptyDraft);
-      push({ type: "success", msg: "Producto agregado" });
+      push({ type: "success", msg: "Producto actualizado" });
+      onCloseEdit();
+      await load();
     } catch (err: any) {
-      // Intenta leer mensaje del backend (DRF suele enviar {detail} o {campo: [errores]})
       const msg =
         err?.response?.data?.detail ||
         Object.entries(err?.response?.data ?? {})
           .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
           .join(" · ") ||
-        "Error al agregar producto";
-
+        "No se pudo actualizar";
       push({ type: "error", msg });
     }
   };
 
+  /* --- ajuste de stock --- */
+  const openAdjust = (p: Product) => {
+    setAdjusting(p);
+    setDelta(0);
+    setReason("ADJUSTMENT");
+    setNote("");
+  };
+  const closeAdjust = () => setAdjusting(null);
+
+  const saveAdjust = async () => {
+    if (!adjusting) return;
+    if (!Number.isFinite(delta) || delta === 0)
+      return push({ type: "error", msg: "El delta debe ser distinto de 0" });
+    try {
+      await InventoryApi.adjust(adjusting.id, {
+        delta: Math.trunc(delta),
+        reason,
+        note,
+      });
+      push({ type: "success", msg: "Ajuste aplicado" });
+      closeAdjust();
+      await load();
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || "No se pudo aplicar el ajuste";
+      push({ type: "error", msg });
+    }
+  };
+
+  /* --- UI --- */
   return (
     <div>
-      <header style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
         <h1 style={{ margin: 0 }}>Inventario</h1>
-        <button
-          onClick={load}
-          disabled={loading}
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid #203048",
-            background: "#0f141b",
-            color: "#e6edf3",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-          title="Refrescar"
-        >
-          {loading ? "Cargando..." : "🔄 Refrescar"}
+        <span style={{ opacity: 0.8 }}>
+          Valor total: <b>{formatCLP(totalValor)}</b>
+        </span>
+        <button onClick={() => void load()} disabled={loading} style={btnPrimary}>
+          🔄 Refrescar
         </button>
-      </header>
+      </div>
 
-      <form
-        onSubmit={create}
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          marginBottom: 14,
-          background: "#0f141b",
-          padding: 12,
-          borderRadius: 10,
-          border: "1px solid #131b25",
-        }}
-      >
+      {/* Filtros */}
+      <div style={{ display: "flex", gap: 8, margin: "8px 0 12px" }}>
         <input
           placeholder="SKU"
-          value={draft.sku}
-          onChange={(e) => setDraft({ ...draft, sku: e.target.value })}
-          style={inputStyle}
+          value={qSku}
+          onChange={(e) => setQSku(e.target.value)}
+          style={input}
         />
         <input
           placeholder="Nombre"
-          value={draft.name}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          style={inputStyle}
+          value={qName}
+          onChange={(e) => setQName(e.target.value)}
+          style={input}
         />
-        <input
-          type="number"
-          placeholder="Cant."
-          value={draft.qty}
-          onChange={(e) => setDraft({ ...draft, qty: Number(e.target.value) })}
-          style={{ ...inputStyle, width: 90, textAlign: "right" }}
-        />
-        <button
-          type="submit"
-          style={{
-            padding: "6px 10px",
-            borderRadius: 8,
-            border: "1px solid #203048",
-            background: "#182330",
-            color: "#e6edf3",
-            cursor: "pointer",
-          }}
+        <select
+          value={qStatus}
+          onChange={(e) => setQStatus(e.target.value as any)}
+          style={input as any}
         >
-          ➕ Agregar
-        </button>
-      </form>
+          <option value="">Estado: todos</option>
+          <option value="AVAILABLE">AVAILABLE</option>
+          <option value="PENDING">PENDING</option>
+          <option value="OUT">OUT</option>
+        </select>
+      </div>
 
-      <table
-        style={{
-          width: "100%",
-          background: "#0f141b",
-          border: "1px solid #131b25",
-          borderRadius: 10,
-          borderCollapse: "collapse",
-        }}
-      >
-        <thead style={{ background: "#0f1622" }}>
-          <tr>
-            <Th>SKU</Th>
-            <Th>Nombre</Th>
-            <Th align="right">Cant.</Th>
-            <Th align="center">Estado</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
+      <div style={{ overflowX: "auto" }}>
+        <table style={table}>
+          <thead style={{ background: "#0f1622" }}>
             <tr>
-              <td colSpan={4} style={{ padding: 16, textAlign: "center", opacity: 0.8 }}>
-                Cargando...
-              </td>
+              <th style={th} onClick={() => toggleSort("sku")}>SKU</th>
+              <th style={th} onClick={() => toggleSort("name")}>Nombre</th>
+              <th style={{ ...th, textAlign: "right" }} onClick={() => toggleSort("qty")}>
+                Cant.
+              </th>
+              <th style={th} onClick={() => toggleSort("status")}>Estado</th>
+              <th style={{ ...th, textAlign: "right" }} onClick={() => toggleSort("price")}>
+                Precio
+              </th>
+              <th style={{ ...th, textAlign: "center" }}>Acciones</th>
             </tr>
-          ) : items.length === 0 ? (
-            <tr>
-              <td colSpan={4} style={{ padding: 16, textAlign: "center", opacity: 0.6 }}>
-                Sin productos
-              </td>
-            </tr>
-          ) : (
-            items.map((p) => (
+          </thead>
+          <tbody>
+            {filteredSorted.map((p) => (
               <tr key={p.id} style={{ borderTop: "1px solid #131b25" }}>
-                <Td>{p.sku}</Td>
-                <Td>{p.name}</Td>
-                <Td align="right">{p.qty}</Td>
-                <Td align="center">{p.status}</Td>
+                <td style={td}>{p.sku}</td>
+                <td style={td}>{p.name}</td>
+                <td style={{ ...td, textAlign: "right" }}>{p.qty}</td>
+                <td style={td}>{p.status}</td>
+                <td style={{ ...td, textAlign: "right" }}>{formatCLP(p.price ?? 0)}</td>
+                <td style={{ ...td, textAlign: "center", display: "flex", gap: 8, justifyContent: "center" }}>
+                  <button onClick={() => onOpenEdit(p)} style={btnPrimary}>✏️ Editar</button>
+                  <button onClick={() => openAdjust(p)} style={btnGhost}>🧮 Ajustar</button>
+                </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+            {filteredSorted.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ padding: 16, opacity: 0.7, textAlign: "center" }}>
+                  Sin productos
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* --- Modal de edición --- */}
+      {editing && (
+        <div style={modalBackdrop} onClick={onCloseEdit}>
+          <div style={modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Editar producto</h3>
+
+            <label style={label}>SKU</label>
+            <input style={input} value={formSku} onChange={(e) => setFormSku(e.target.value)} />
+
+            <label style={label}>Nombre</label>
+            <input style={input} value={formName} onChange={(e) => setFormName(e.target.value)} />
+
+            <label style={label}>Precio</label>
+            <input
+              style={input}
+              inputMode="numeric"
+              value={formatCLP(formPrice)}
+              onChange={(e) => setFormPrice(parseCLP(e.target.value))}
+            />
+
+            <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+              <button onClick={onCloseEdit} style={btnGhost}>Cancelar</button>
+              <button onClick={onSaveEdit} style={btnPrimary}>💾 Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Modal de ajuste --- */}
+      {adjusting && (
+        <div style={modalBackdrop} onClick={closeAdjust}>
+          <div style={modal} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>
+              Ajustar stock — <span style={{ opacity: 0.9 }}>{adjusting.name}</span>
+            </h3>
+
+            <label style={label}>Delta (usa negativo para restar)</label>
+            <input
+              type="number"
+              style={input}
+              value={delta}
+              onChange={(e) => setDelta(Number(e.target.value))}
+            />
+
+            <label style={label}>Motivo</label>
+            <select
+              style={input as any}
+              value={reason}
+              onChange={(e) => setReason(e.target.value as any)}
+            >
+              <option value="ADJUSTMENT">Ajuste manual</option>
+              <option value="DAMAGE">Merma / Daño</option>
+              <option value="RETURN">Devolución</option>
+              <option value="COUNT">Diferencia inventario</option>
+            </select>
+
+            <label style={label}>Nota (opcional)</label>
+            <input style={input} value={note} onChange={(e) => setNote(e.target.value)} />
+
+            <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+              <button onClick={closeAdjust} style={btnGhost}>Cancelar</button>
+              <button onClick={saveAdjust} style={btnPrimary}>💾 Aplicar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-const inputStyle: React.CSSProperties = {
+/* ----- estilos mínimos ----- */
+const table: React.CSSProperties = {
+  width: "100%",
+  background: "#0f141b",
+  border: "1px solid #131b25",
+  borderRadius: 10,
+  borderCollapse: "collapse",
+};
+const th: React.CSSProperties = { textAlign: "left", padding: 12, color: "#9fb3c8", cursor: "pointer" };
+const td: React.CSSProperties = { padding: 12 };
+const btnPrimary: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "1px solid #203048",
+  background: "#182330",
+  color: "#e6edf3",
+  cursor: "pointer",
+};
+const btnGhost: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "1px solid #203048",
+  background: "transparent",
+  color: "#e6edf3",
+  cursor: "pointer",
+};
+const input: React.CSSProperties = {
   padding: "6px 8px",
   borderRadius: 8,
   border: "1px solid #203048",
@@ -194,22 +338,20 @@ const inputStyle: React.CSSProperties = {
   color: "#e6edf3",
   outline: "none",
 };
-
-function Th({
-  children,
-  align = "left",
-}: {
-  children: React.ReactNode;
-  align?: "left" | "center" | "right";
-}) {
-  return <th style={{ textAlign: align, padding: 12, color: "#9fb3c8" }}>{children}</th>;
-}
-function Td({
-  children,
-  align = "left",
-}: {
-  children: React.ReactNode;
-  align?: "left" | "center" | "right";
-}) {
-  return <td style={{ textAlign: align, padding: 12 }}>{children}</td>;
-}
+const label: React.CSSProperties = { fontSize: 12, opacity: 0.8, marginTop: 8, marginBottom: 4 };
+const modalBackdrop: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,.4)",
+  display: "grid",
+  placeItems: "center",
+  zIndex: 40,
+};
+const modal: React.CSSProperties = {
+  width: 480,
+  maxWidth: "95vw",
+  background: "#0f141b",
+  border: "1px solid #203048",
+  borderRadius: 12,
+  padding: 16,
+};
