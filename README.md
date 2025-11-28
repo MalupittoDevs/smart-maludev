@@ -9,7 +9,7 @@ Permite visualizar, agregar, comprar y eliminar productos, además de revisar un
 
 ---
 
-## 🏗️ Arquitectura
+## Arquitectura
 
 ```text
                      ┌───────────────────────────┐
@@ -35,7 +35,7 @@ Permite visualizar, agregar, comprar y eliminar productos, además de revisar un
                      │   price, status, updated_at│
                      │ )                          │
                      └────────────────────────────┘
-🌱 Ramas (Git Flow)
+ Ramas (Git Flow)
 Rama	Descripción	Uso principal
 main	Producción estable	Código listo para deploy
 dev	Desarrollo activo	Implementación de features
@@ -54,7 +54,7 @@ bash
 Copy code
 git checkout test && git merge dev && git push
 git checkout main && git merge test && git push
-🧰 Stack tecnológico
+ Stack tecnológico
 Backend: Django 5.x, Django REST Framework, django-cors-headers, python-dotenv
 
 Frontend: React 18, TypeScript, Vite, Axios, React Router, Lucide Icons
@@ -63,7 +63,7 @@ Base de datos (desarrollo): SQLite
 
 Entornos: venv (Python) / Node LTS (20/22)
 
-▶️ Cómo correr el proyecto
+ Cómo correr el proyecto
 Backend
 bash
 Copy code
@@ -96,13 +96,13 @@ DELETE /api/products/{id}/ — Elimina producto
 POST /api/products/{id}/buy/ — Compra { qty } y ajusta stock/estado:
 
 Condición	Resultado
-qty <= 0	❌ 400
-qty > stock	❌ 400
+qty <= 0	    400
+qty > stock	  400
 qty == stock	status = OUT
 stock <= 5	status = PENDING
 stock > 5	status = AVAILABLE
 
-📂 Estructura del repositorio
+Estructura del repositorio
 text
 Copy code
 smart-maludev/
@@ -121,7 +121,7 @@ smart-maludev/
 │  └─ package.json
 ├─ .gitignore
 └─ README.md
-🧭 Roadmap corto
+Roadmap corto
 Validaciones de formulario en frontend (SKU único, qty ≥ 0, price ≥ 0)
 
 Paginación y búsqueda en /products/
@@ -137,8 +137,6 @@ Integración futura de módulo de predicción (Prophet u otra librería)
 👤 Autor
 Elías Yévenes (Malupitto) – Ingeniería en Informática, DuocUC
 
-“Sanar sistemas, como sanar personas: mantener el equilibrio.” ⚕️
-
-📄 Licencia
+ Licencia
 Proyecto bajo licencia MIT.
 Se permite uso y modificación con atribución al autor original.
