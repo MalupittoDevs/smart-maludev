@@ -3,9 +3,9 @@
 Inventario Smart es un sistema web para la gestión inteligente de productos y stock en PYMEs.
 Permite visualizar, agregar, comprar y eliminar productos, además de revisar un historial de movimientos.
 
-- 🖥️ **Backend:** Django + Django REST Framework
-- ⚛️ **Frontend:** React + TypeScript (Vite)
-- 🎓 Proyecto de titulación – Ingeniería en Informática (DuocUC)
+- **Backend:** Django + Django REST Framework
+- **Frontend:** React + TypeScript (Vite)
+- Proyecto de titulación – Ingeniería en Informática (DuocUC)
 
 ---
 
