@@ -15,6 +15,7 @@ const formatDateTime = (iso: string) => {
     return new Date(iso).toLocaleString("es-CL", {
       dateStyle: "short",
       timeStyle: "short",
+      
     });
   } catch {
     return iso;
