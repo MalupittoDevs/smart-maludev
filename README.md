@@ -1,4 +1,4 @@
-# Smart MaluDev – Sistema de Inventario Inteligente
+# Smart MaluDev – Sistema de Inventario
 
 Inventario Smart es un sistema web para la gestión inteligente de productos y stock en PYMEs.
 Permite visualizar, agregar, comprar y eliminar productos, además de revisar un historial de movimientos.
